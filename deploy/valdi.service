@@ -1,0 +1,18 @@
+[Unit]
+Description=Valdi CRM
+After=network.target
+
+[Service]
+User=valdi
+Group=valdi
+WorkingDirectory=/opt/valdi-crm
+Environment=VALDI_BEHIND_PROXY=1
+Environment=VALDI_SECURE_COOKIES=1
+Environment=VALDI_TZ=Asia/Almaty
+# 1 воркер + потоки: SQLite и счётчик попыток входа живут в одном процессе
+ExecStart=/opt/valdi-crm/.venv/bin/gunicorn -w 1 --threads 8 -b 127.0.0.1:8000 "valdi:create_app()"
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

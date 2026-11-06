@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Сотрудники{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Сотрудники</h1>
+    <p class="page-sub num">{{ users|length }} {{ plural(users|length, 'учётная запись', 'учётные записи', 'учётных записей') }}, доступ по разделам</p>
+  </div>
+  <div class="page-actions"><a class="btn btn-primary" href="{{ url_for('employees.create') }}">{{ icon('plus') }}Новый сотрудник</a></div>
+</div>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Сотрудник</th><th>Логин</th><th>Роль</th><th>Доступ</th><th>Статус</th><th class="hide-sm">Последний вход</th><th class="r"><span class="sr-only">Действия</span></th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        {% set editable = current_user.is_admin or u.role != 'admin' %}
+        {% set is_me = u.id == current_user.id %}
+        <tr>
+          <td>
+            <div class="strong">{{ u.full_name }} {% if is_me %}<span class="you">это вы</span>{% endif %}</div>
+            <div class="sub num">{{ u.phone|phone if u.phone else (u.email or '—') }}</div>
+          </td>
+          <td class="num muted">{{ u.login }}</td>
+          <td><span class="role {% if u.role == 'admin' %}role-admin{% endif %}">{{ ROLES[u.role] }}</span></td>
+          <td style="min-width:280px; max-width:420px">
+            {% if u.role == 'admin' %}<span class="tag tag-lime">Полный доступ</span>
+            {% elif u.perm_labels %}<div class="tags">{% for p in u.perm_labels %}<span class="tag">{{ p }}</span>{% endfor %}</div>
+            {% else %}<span class="faint">Нет доступа</span>{% endif %}
+          </td>
+          <td>{% if u.is_active %}<span class="badge tone-ok">Активен</span>{% else %}<span class="badge tone-muted">Отключён</span>{% endif %}</td>
+          <td class="num muted hide-sm">{{ u.last_login_at|datetime if u.last_login_at else '—' }}</td>
+          <td class="r">
+            {% if editable %}
+            <div class="icon-actions">
+              <a class="btn btn-ghost btn-icon" href="{{ url_for('employees.edit', user_id=u.id) }}" title="Изменить" aria-label="Изменить {{ u.full_name }}">{{ icon('edit', 'i-sm') }}</a>
+              {% if not is_me %}
+              <form method="post" action="{{ url_for('employees.toggle', user_id=u.id) }}" {% if u.is_active %}data-confirm="Отключить доступ для «{{ u.full_name }}»? Сотрудник не сможет войти."{% endif %}>
+                {{ csrf() }}
+                <button class="btn btn-ghost btn-icon" type="submit" title="{{ 'Отключить' if u.is_active else 'Включить' }}" aria-label="{{ 'Отключить' if u.is_active else 'Включить' }} {{ u.full_name }}">{{ icon('power', 'i-sm') }}</button>
+              </form>
+              <form method="post" action="{{ url_for('employees.delete', user_id=u.id) }}" data-confirm="Удалить учётную запись «{{ u.full_name }}»? История действий в заказах сохранится без имени.">
+                {{ csrf() }}
+                <button class="btn btn-danger btn-icon" type="submit" title="Удалить" aria-label="Удалить {{ u.full_name }}">{{ icon('trash', 'i-sm') }}</button>
+              </form>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

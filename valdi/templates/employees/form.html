@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, err, invalid, csrf %}
+{% block title %}{{ 'Новый сотрудник' if not user else user.full_name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('employees.index') }}">{{ icon('arrow-left', 'i-sm') }}Все сотрудники</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'Новый сотрудник' if not user else user.full_name }}</h1>
+    <p class="page-sub">{{ 'Учётная запись, роль и доступ к разделам' if not user else 'Роль: ' ~ ROLES[user.role] ~ ', логин ' ~ user.login }}</p>
+  </div>
+</div>
+
+<form method="post" novalidate autocomplete="off" style="max-width:1040px" id="employee-form"
+      data-role-defaults='{{ role_defaults|tojson }}' data-is-new="{{ '1' if not user else '0' }}">
+  {{ csrf() }}
+  <div class="panel">
+    <section class="form-section">
+      <div class="section-head"><h2 class="section-title">Учётная запись</h2></div>
+      <div class="form-grid">
+        <div class="field{{ invalid(errors, 'full_name') }}">
+          <label class="label" for="full_name">ФИО или должность <span class="req">*</span></label>
+          <input class="input" id="full_name" name="full_name" value="{{ data.full_name }}" maxlength="120" placeholder="Иванов Иван Иванович">
+          {{ err(errors, 'full_name') }}
+        </div>
+        <div class="field{{ invalid(errors, 'role') }}">
+          <label class="label" for="role">Роль</label>
+          <select class="select" id="role" name="role" data-role>
+            {% for key, label in ROLES.items() %}
+              {% if key != 'admin' or current_user.is_admin %}
+              <option value="{{ key }}" {% if data.role == key %}selected{% endif %}>{{ label }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          {{ err(errors, 'role') }}
+        </div>
+        <div class="field{{ invalid(errors, 'phone') }}">
+          <label class="label" for="phone">Телефон</label>
+          <input class="input" id="phone" name="phone" value="{{ data.phone_raw }}" inputmode="tel" placeholder="+7 701 234 56 78">
+          {{ err(errors, 'phone') }}
+        </div>
+        <div class="field{{ invalid(errors, 'email') }}">
+          <label class="label" for="email">E-mail</label>
+          <input class="input" id="email" name="email" type="email" value="{{ data.email }}" placeholder="ivanov@valdi.kz">
+          {{ err(errors, 'email') }}
+        </div>
+        <div class="field{{ invalid(errors, 'login') }}">
+          <label class="label" for="login">Логин <span class="req">*</span></label>
+          <input class="input" id="login" name="login" value="{{ data.login }}" maxlength="32" autocapitalize="off" spellcheck="false" placeholder="ivanov">
+          {% if errors.get('login') %}{{ err(errors, 'login') }}{% else %}<p class="hint">Латиница, цифры, точка, дефис, подчёркивание. 3–32 символа.</p>{% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="section-head"><h2 class="section-title">Доступ к разделам</h2><span class="section-note" data-admin-note {% if data.role != 'admin' %}hidden{% endif %}>Администратору открыто всё</span></div>
+      <div class="perm-grid" data-perms>
+        {% for key, label in PERMISSIONS %}
+        <label class="perm{% if data.role == 'admin' %} disabled{% endif %}">
+          <span class="check">
+            <input type="checkbox" name="permissions" value="{{ key }}" {% if key in data.permissions or data.role == 'admin' %}checked{% endif %} {% if data.role == 'admin' %}disabled{% endif %}>
+            <span class="check-box">{{ icon('check') }}</span>
+          </span>
+          <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="hint" style="margin-top:12px">Управление включает просмотр: отметка «Заказы: управление» открывает и список заказов.</p>
+    </section>
+
+    <section class="form-section">
+      <div class="section-head"><h2 class="section-title">{{ 'Пароль' if not user else 'Новый пароль' }}</h2>{% if user %}<span class="section-note">Оставьте пустым, чтобы не менять</span>{% endif %}</div>
+      <div class="form-grid">
+        <div class="field{{ invalid(errors, 'password') }}">
+          <label class="label" for="password">Пароль {% if not user %}<span class="req">*</span>{% endif %}</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8">
+          {% if errors.get('password') %}{{ err(errors, 'password') }}{% else %}<p class="hint">Минимум 8 символов.</p>{% endif %}
+        </div>
+        <div class="field{{ invalid(errors, 'password2') }}">
+          <label class="label" for="password2">Повторите пароль</label>
+          <input class="input" id="password2" name="password2" type="password" autocomplete="new-password">
+          {{ err(errors, 'password2') }}
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <label class="switch">
+        <input type="checkbox" name="is_active" value="1" {% if data.is_active %}checked{% endif %}>
+        <span class="switch-track"></span>
+        <span><span class="strong">Доступ включён</span><br><span class="hint">Сотрудник может входить в систему</span></span>
+      </label>
+      {{ err(errors, 'is_active') }}
+    </section>
+  </div>
+  <div class="form-bar">
+    <span class="spacer"></span>
+    <a class="btn btn-ghost" href="{{ url_for('employees.index') }}">Отмена</a>
+    <button class="btn btn-primary" type="submit">{{ 'Создать сотрудника' if not user else 'Сохранить изменения' }}</button>
+  </div>
+</form>
+{% endblock %}

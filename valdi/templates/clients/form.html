@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, err, invalid, csrf %}
+{% block title %}{{ 'Новый клиент' if not client else 'Изменение клиента' }}{% endblock %}
+{% block content %}
+{% if client %}
+<a class="back" href="{{ url_for('clients.detail', client_id=client.id) }}">{{ icon('arrow-left', 'i-sm') }}{{ client.full_name }}</a>
+{% else %}
+<a class="back" href="{{ url_for('clients.index') }}">{{ icon('arrow-left', 'i-sm') }}Все клиенты</a>
+{% endif %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'Новый клиент' if not client else 'Изменение клиента' }}</h1>
+    <p class="page-sub">{{ 'Карточка появится в поиске при оформлении заказа' if not client else client.full_name }}</p>
+  </div>
+</div>
+
+<form method="post" novalidate style="max-width:880px">
+  {{ csrf() }}
+  <div class="panel">
+    <div class="form-section">
+      <div class="form-grid">
+        <div class="field{{ invalid(errors, 'full_name') }}">
+          <label class="label" for="full_name">ФИО <span class="req">*</span></label>
+          <input class="input" id="full_name" name="full_name" value="{{ data.full_name }}" maxlength="120" placeholder="Иванов Иван Иванович" autofocus>
+          {{ err(errors, 'full_name') }}
+        </div>
+        <div class="field{{ invalid(errors, 'phone') }}">
+          <label class="label" for="phone">Телефон <span class="req">*</span></label>
+          <input class="input" id="phone" name="phone" value="{{ data.phone_raw }}" inputmode="tel" placeholder="+7 701 234 56 78">
+          {% if errors.get('phone') %}{{ err(errors, 'phone') }}{% else %}<p class="hint">От 10 до 15 цифр. Можно с +, пробелами, скобками и дефисами.</p>{% endif %}
+        </div>
+        <div class="field span-2{{ invalid(errors, 'comment') }}">
+          <label class="label" for="comment">Комментарий</label>
+          <textarea class="textarea" id="comment" name="comment" maxlength="1000" placeholder="Откуда пришёл, предпочтения, удобное время для звонка">{{ data.comment }}</textarea>
+          {{ err(errors, 'comment') }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="form-bar">
+    <span class="spacer"></span>
+    <a class="btn btn-ghost" href="{{ url_for('clients.detail', client_id=client.id) if client else url_for('clients.index') }}">Отмена</a>
+    {% if not client and current_user.can('orders_manage') %}
+    <button class="btn" type="submit" name="then" value="order">Сохранить и создать заказ</button>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{{ 'Сохранить клиента' if not client else 'Сохранить изменения' }}</button>
+  </div>
+</form>
+{% endblock %}

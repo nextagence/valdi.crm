@@ -1,0 +1,58 @@
+{% macro icon(name, cls="") -%}
+<svg class="i {{ cls }}" aria-hidden="true"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+
+{% macro status_badge(key) -%}
+<span class="badge st-{{ key }}">{{ STATUSES.get(key, key) }}</span>
+{%- endmacro %}
+
+{% macro deadline(order) -%}
+{%- if order.delivery_date -%}
+  {%- if order.status in ('accepted', 'production', 'ready') -%}
+    {%- set d = deadline_info(order.delivery_date) -%}
+    {%- if d and d.days <= 3 -%}
+      <span class="badge plain tone-{{ d.tone }}">{{ d.label }}</span>
+    {%- else -%}
+      <span class="num">{{ order.delivery_date|date }}</span>
+    {%- endif -%}
+  {%- else -%}
+    <span class="num faint">{{ order.delivery_date|date }}</span>
+  {%- endif -%}
+{%- else -%}<span class="faint">—</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro err(errors, key) -%}
+{%- if errors and errors.get(key) %}<p class="error-text" id="err-{{ key }}">{{ errors[key] }}</p>{% endif -%}
+{%- endmacro %}
+
+{% macro invalid(errors, key) -%}
+{%- if errors and errors.get(key) %} is-invalid{% endif -%}
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{% macro pager(page, pages, endpoint) -%}
+{%- if pages > 1 -%}
+{%- set args = request.args.to_dict() -%}
+<nav class="pager" aria-label="Страницы">
+  <span>Страница {{ page }} из {{ pages }}</span>
+  <div class="pager-links">
+    {%- set _ = args.update({'page': page - 1}) %}
+    <a class="btn btn-sm" href="{{ url_for(endpoint, **args) }}" {% if page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>{{ icon('chevron-left', 'i-sm') }} Назад</a>
+    {%- set _ = args.update({'page': page + 1}) %}
+    <a class="btn btn-sm" href="{{ url_for(endpoint, **args) }}" {% if page >= pages %}aria-disabled="true" tabindex="-1"{% endif %}>Вперёд {{ icon('chevron-right', 'i-sm') }}</a>
+  </div>
+</nav>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro sort_th(label, key, f, cls="") -%}
+{%- set args = request.args.to_dict() -%}
+{%- set active = f.sort == key -%}
+{%- set _ = args.update({'sort': key, 'dir': ('asc' if active and f.dir == 'desc' else 'desc'), 'page': 1}) -%}
+<th class="{{ cls }}" {% if active %}aria-sort="{{ 'ascending' if f.dir == 'asc' else 'descending' }}"{% endif %}>
+  <a class="th-sort{% if active %} active{% endif %}" href="{{ url_for('orders.index', **args) }}">{{ label }}{% if active %}{{ icon('arrow-up' if f.dir == 'asc' else 'arrow-down') }}{% endif %}</a>
+</th>
+{%- endmacro %}

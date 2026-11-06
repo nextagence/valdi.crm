@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, deadline, csrf %}
+{% block title %}Заказ №{{ order.id }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('orders.index') }}">{{ icon('arrow-left', 'i-sm') }}Все заказы</a>
+<div class="page-head">
+  <div>
+    <div class="title-row"><h1 class="page-title">Заказ №{{ order.id }}</h1>{{ status_badge(order.status) }}</div>
+    <p class="page-sub">Создан {{ order.created_at|datetime }}{% if order.author %}, {{ order.author }}{% endif %}</p>
+  </div>
+  {% if current_user.can('orders_manage') %}
+  <div class="page-actions">
+    <form method="post" action="{{ url_for('orders.delete', order_id=order.id) }}" data-confirm="Удалить заказ №{{ order.id }} вместе с позициями и историей? Действие необратимо.">
+      {{ csrf() }}<button class="btn btn-danger" type="submit">{{ icon('trash') }}Удалить</button>
+    </form>
+    <a class="btn btn-primary" href="{{ url_for('orders.edit', order_id=order.id) }}">{{ icon('edit') }}Изменить заказ</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="grid">
+  <div class="c-8 stack">
+    <section class="panel">
+      <div class="panel-body">
+        <div class="facts">
+          <div>
+            <div class="fact-label">Клиент</div>
+            <div class="fact-value">{% if current_user.can('clients_view') %}<a href="{{ url_for('clients.detail', client_id=order.client_id) }}">{{ order.client }}</a>{% else %}{{ order.client }}{% endif %}</div>
+          </div>
+          <div>
+            <div class="fact-label">Телефон</div>
+            <div class="fact-value num"><a href="tel:{{ order.client_phone }}">{{ order.client_phone|phone }}</a></div>
+          </div>
+          <div>
+            <div class="fact-label">Доставка</div>
+            <div class="fact-value">{{ deadline(order) }}{% if order.delivery_date and order.status in ('accepted','production','ready') and deadline_info(order.delivery_date).days <= 3 %} <span class="faint num">{{ order.delivery_date|date }}</span>{% endif %}</div>
+          </div>
+          <div>
+            <div class="fact-label">Позиций</div>
+            <div class="fact-value num">{{ items|length }} ({{ qty_total }} шт.)</div>
+          </div>
+          <div>
+            <div class="fact-label">Изменён</div>
+            <div class="fact-value num">{{ order.updated_at|datetime }}</div>
+          </div>
+          <div>
+            <div class="fact-label">Сумма заказа</div>
+            <div class="fact-value num">{{ order.total|money }}</div>
+          </div>
+          {% if order.comment %}
+          <div class="fact-wide">
+            <div class="fact-label">Комментарий</div>
+            <div class="comment-box">{{ order.comment }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">Состав заказа</h2></div>
+      <div class="panel-flush">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>№</th><th>Тип</th><th>Описание</th><th>Ш × В × Г, мм</th><th class="r">Кол-во</th><th class="r">Цена за ед.</th><th class="r">Сумма</th></tr></thead>
+            <tbody>
+              {% for it in items %}
+              <tr>
+                <td class="id">{{ it.position }}</td>
+                <td class="strong">{{ it.furniture_type }}</td>
+                <td class="col-desc">{{ it.name or '—' }}</td>
+                <td class="dims num">{% if it.width or it.height or it.depth %}{{ it.width or '—' }} × {{ it.height or '—' }} × {{ it.depth or '—' }}{% else %}—{% endif %}</td>
+                <td class="r num">{{ it.qty }}</td>
+                <td class="r num muted">{{ it.unit_price|money }}</td>
+                <td class="r num strong">{{ it.line_total|money }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr class="total-row"><td colspan="6" class="r muted">Итого по заказу</td><td class="r"><span class="grand-value num">{{ order.total|money }}</span></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="c-4 stack">
+    {% if current_user.can('orders_manage') %}
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">Сменить статус</h2></div>
+      <form class="panel-body" method="post" action="{{ url_for('orders.change_status', order_id=order.id) }}" style="display:grid; gap:16px">
+        {{ csrf() }}
+        <div class="field">
+          <label class="label" for="st">Новый статус</label>
+          <select class="select" id="st" name="status">
+            {% for key, label in STATUSES.items() %}<option value="{{ key }}" {% if key == order.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="st-c">Комментарий</label>
+          <input class="input" id="st-c" name="comment" maxlength="500" placeholder="Необязательно">
+        </div>
+        <button class="btn btn-primary" type="submit">Сохранить статус</button>
+      </form>
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      <div class="panel-head"><h2 class="panel-title">История</h2><span class="panel-meta num">{{ history|length }} {{ plural(history|length, 'запись', 'записи', 'записей') }}</span></div>
+      <div class="feed">
+        {% for h in history %}
+        <div class="feed-item">
+          <span class="feed-dot {% if h.kind == 'edited' %}kind-edited{% else %}st-{{ h.status }}{% endif %}"></span>
+          <div>
+            <div class="feed-text">
+              {% if h.kind == 'created' %}Заказ создан, статус «{{ STATUSES.get(h.status, h.status) }}»
+              {% elif h.kind == 'status' %}Статус: <strong>{{ STATUSES.get(h.status, h.status) }}</strong>
+              {% else %}Данные заказа изменены{% endif %}
+            </div>
+            <div class="feed-meta num">{{ h.created_at|datetime }}{% if h.user %}, {{ h.user }}{% endif %}</div>
+            {% if h.comment %}<div class="feed-note">{{ h.comment }}</div>{% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="muted">Записей нет.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, csrf %}
+{% block title %}Вход{% endblock %}
+{% block body %}
+<div class="login">
+  <section class="login-art" aria-hidden="true">
+    <div class="brand"><span class="brand-mark"></span><span class="brand-name">{{ company|lower }}</span></div>
+
+    <svg class="drawing" viewBox="0 0 560 440" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g stroke="currentColor" stroke-width="1.75">
+        <rect class="draw" pathLength="1" x="110" y="40" width="340" height="340" rx="2"/>
+        <path class="draw" pathLength="1" d="M110 62h340M110 358h340"/>
+        <path class="draw draw-late" pathLength="1" d="M223.3 62v296M336.7 62v296"/>
+        <path class="draw draw-late" pathLength="1" d="M223.3 278h113.4M223.3 318h113.4"/>
+        <path class="draw draw-late" pathLength="1" d="M210 180v40M236.5 180v40M323.5 180v40M350 180v40"/>
+        <path class="draw draw-late" pathLength="1" d="M266 298h28M266 338h28"/>
+      </g>
+      <g class="dim" stroke="currentColor" stroke-width="1">
+        <path class="draw draw-late" pathLength="1" d="M110 388v34M450 388v34M110 412h340"/>
+        <path class="draw draw-late" pathLength="1" d="M105 417l10-10M445 417l10-10"/>
+        <path class="draw draw-late" pathLength="1" d="M458 40h40M458 380h40M488 40v340"/>
+        <path class="draw draw-late" pathLength="1" d="M483 45l10-10M483 385l10-10"/>
+      </g>
+      <g class="fade-late">
+        <text x="280" y="404" text-anchor="middle">2400</text>
+        <text x="0" y="0" text-anchor="middle" transform="translate(478 210) rotate(-90)">2600</text>
+        <text x="110" y="28">Шкаф-купе, 3 двери</text>
+      </g>
+    </svg>
+
+    <div class="login-caption">
+      <strong>Учёт заказов мебельного производства</strong>
+      Клиенты, позиции с размерами, статусы цеха и сроки доставки — от замера до установки.
+    </div>
+  </section>
+
+  <section class="login-form-wrap">
+    <form class="login-form" method="post" novalidate>
+      {{ csrf() }}
+      <div>
+        <h1>Вход</h1>
+        <p class="page-sub">Логин и пароль выдаёт администратор системы.</p>
+      </div>
+
+      {% if no_users %}
+      <div class="flash flash-info"><span class="flash-text">В базе нет пользователей. Создайте администратора командой <code>flask --app valdi create-admin</code> или запустите <code>python run.py</code>.</span></div>
+      {% endif %}
+      {% if error %}<div class="alert-inline" role="alert">{{ error }}</div>{% endif %}
+
+      <div class="field">
+        <label class="label" for="login">Логин</label>
+        <div class="input-icon">
+          {{ icon('user') }}
+          <input class="input" id="login" name="login" value="{{ login_value }}" autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="password">Пароль</label>
+        <div class="input-icon">
+          {{ icon('lock') }}
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Войти</button>
+      <p class="login-foot">Забыли пароль? Новый задаст администратор в разделе «Сотрудники».</p>
+    </form>
+  </section>
+</div>
+{% endblock %}

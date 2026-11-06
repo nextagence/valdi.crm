@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, deadline, pager, sort_th %}
+{% block title %}Заказы{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Заказы</h1>
+    <p class="page-sub">Поиск, фильтры и статусы производства</p>
+  </div>
+  {% if current_user.can('orders_manage') %}
+  <div class="page-actions"><a class="btn btn-primary" href="{{ url_for('orders.create') }}">{{ icon('plus') }}Новый заказ</a></div>
+  {% endif %}
+</div>
+
+<section class="panel" style="margin-bottom:16px">
+  <form class="filters" method="get" action="{{ url_for('orders.index') }}">
+    <div class="field">
+      <label class="label" for="f-number">Номер</label>
+      <input class="input" id="f-number" name="number" value="{{ f.number }}" inputmode="numeric" placeholder="17">
+    </div>
+    <div class="field">
+      <label class="label" for="f-client">Клиент</label>
+      <input class="input" id="f-client" name="client" value="{{ f.client }}" placeholder="Фамилия">
+    </div>
+    <div class="field">
+      <label class="label" for="f-phone">Телефон</label>
+      <input class="input" id="f-phone" name="phone" value="{{ f.phone }}" inputmode="tel" placeholder="701 123">
+    </div>
+    <div class="field">
+      <label class="label" for="f-type">Мебель</label>
+      <select class="select" id="f-type" name="type">
+        <option value="">Любая</option>
+        {% for t in FURNITURE_TYPES %}<option {% if f.type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="f-status">Статус</label>
+      <select class="select" id="f-status" name="status">
+        <option value="">Все</option>
+        <option value="active" {% if f.status == 'active' %}selected{% endif %}>В работе (все активные)</option>
+        <option value="overdue" {% if f.status == 'overdue' %}selected{% endif %}>Просроченные</option>
+        {% for key, label in STATUSES.items() %}<option value="{{ key }}" {% if f.status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="f-sort">Сортировка</label>
+      <select class="select" id="f-sort" name="sort">
+        {% for key, label in sort_labels %}<option value="{{ key }}" {% if f.sort == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="f-from">Создан с</label>
+      <input class="input" id="f-from" type="date" name="date_from" value="{{ f.date_from }}">
+    </div>
+    <div class="field">
+      <label class="label" for="f-to">Создан по</label>
+      <input class="input" id="f-to" type="date" name="date_to" value="{{ f.date_to }}">
+    </div>
+    <div class="field">
+      <label class="label" for="f-dir">Порядок</label>
+      <select class="select" id="f-dir" name="dir">
+        <option value="desc" {% if f.dir == 'desc' %}selected{% endif %}>По убыванию</option>
+        <option value="asc" {% if f.dir == 'asc' %}selected{% endif %}>По возрастанию</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">{{ icon('search') }}Найти</button>
+      {% if has_filters %}<a class="btn btn-ghost" href="{{ url_for('orders.index') }}">{{ icon('reset') }}Сбросить</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="results-line">
+    <span>Найдено <strong class="num">{{ total_count }}</strong> {{ plural(total_count, 'заказ', 'заказа', 'заказов') }}</span>
+    <span>Сумма без отменённых: <strong class="num">{{ sum_total|money }}</strong></span>
+  </div>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          {{ sort_th('№', 'id', f) }}
+          {{ sort_th('Клиент', 'client', f) }}
+          <th class="hide-sm">Мебель</th>
+          {{ sort_th('Стоимость', 'total', f, 'r') }}
+          {{ sort_th('Создан', 'created', f) }}
+          {{ sort_th('Доставка', 'delivery', f) }}
+          <th>Статус</th>
+          {% if current_user.can('orders_manage') %}<th class="r"><span class="sr-only">Действия</span></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in rows %}
+        <tr data-href="{{ url_for('orders.detail', order_id=o.id) }}">
+          <td class="id"><a href="{{ url_for('orders.detail', order_id=o.id) }}">{{ o.id }}</a></td>
+          <td class="col-client">
+            <div class="strong">{{ o.client }}</div>
+            <div class="sub num">{{ o.client_phone|phone }}</div>
+          </td>
+          <td class="muted hide-sm">{{ o.types or '—' }}</td>
+          <td class="r num strong">{{ o.total|money }}</td>
+          <td class="num muted">{{ o.created_at|date }}</td>
+          <td>{{ deadline(o) }}</td>
+          <td>{{ status_badge(o.status) }}</td>
+          {% if current_user.can('orders_manage') %}
+          <td class="r"><div class="icon-actions">
+            <a class="btn btn-ghost btn-icon" href="{{ url_for('orders.edit', order_id=o.id) }}" title="Изменить" aria-label="Изменить заказ №{{ o.id }}">{{ icon('edit', 'i-sm') }}</a>
+          </div></td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ pager(page, pages, 'orders.index') }}
+  {% elif has_filters %}
+  <div class="empty"><div class="empty-title">Ничего не найдено</div>Измените условия поиска или сбросьте фильтры.
+    <div><a class="btn" href="{{ url_for('orders.index') }}">Сбросить фильтры</a></div></div>
+  {% else %}
+  <div class="empty"><div class="empty-title">Заказов пока нет</div>Первый заказ появится здесь сразу после сохранения.
+    {% if current_user.can('orders_manage') %}<div><a class="btn btn-primary" href="{{ url_for('orders.create') }}">{{ icon('plus') }}Новый заказ</a></div>{% endif %}</div>
+  {% endif %}
+</section>
+{% endblock %}

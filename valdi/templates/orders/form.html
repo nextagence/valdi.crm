@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, err, invalid, csrf %}
+{% block title %}{{ 'Новый заказ' if is_new else 'Изменение заказа №' ~ order.id }}{% endblock %}
+
+{% macro item_row(it) -%}
+<div class="item-row" data-item>
+  <div><span class="m-label">Тип мебели</span>
+    <select class="select" name="item_type" aria-label="Тип мебели">
+      {% for t in FURNITURE_TYPES %}<option {% if it.furniture_type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  </div>
+  <div><span class="m-label">Название, описание</span>
+    <input class="input" name="item_name" value="{{ it.name }}" maxlength="200" placeholder="Шкаф-купе, 3 двери" aria-label="Название, описание"></div>
+  <div><span class="m-label">Ширина</span>
+    <input class="input n" name="item_w" value="{{ it.width }}" inputmode="numeric" placeholder="мм" aria-label="Ширина, мм"></div>
+  <div><span class="m-label">Высота</span>
+    <input class="input n" name="item_h" value="{{ it.height }}" inputmode="numeric" placeholder="мм" aria-label="Высота, мм"></div>
+  <div><span class="m-label">Глубина</span>
+    <input class="input n" name="item_d" value="{{ it.depth }}" inputmode="numeric" placeholder="мм" aria-label="Глубина, мм"></div>
+  <div><span class="m-label">Кол-во</span>
+    <input class="input n" name="item_qty" value="{{ it.qty or 1 }}" inputmode="numeric" data-qty aria-label="Количество"></div>
+  <div><span class="m-label">Цена за ед., ₸</span>
+    <input class="input n" name="item_price" value="{{ it.unit_price }}" inputmode="decimal" placeholder="0" data-price aria-label="Цена за единицу, тенге"></div>
+  <div class="item-total num" data-line-total>0,00 ₸</div>
+  <div><button class="btn btn-ghost btn-icon" type="button" data-remove-item title="Убрать позицию" aria-label="Убрать позицию">{{ icon('x', 'i-sm') }}</button></div>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<a class="back" href="{{ url_for('orders.index') if is_new else url_for('orders.detail', order_id=order.id) }}">{{ icon('arrow-left', 'i-sm') }}{{ 'Все заказы' if is_new else 'Заказ №' ~ order.id }}</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'Новый заказ' if is_new else 'Изменение заказа №' ~ order.id }}</h1>
+    <p class="page-sub">{% if is_new %}Клиент, позиции с размерами, сроки и статус{% else %}Клиент: {{ order.client }}, создан {{ order.created_at|datetime }}{% endif %}</p>
+  </div>
+</div>
+
+<form method="post" id="order-form" novalidate autocomplete="off">
+  {{ csrf() }}
+  <div class="panel">
+
+    <section class="form-section">
+      <div class="section-head"><span class="step">1</span><h2 class="section-title">Клиент</h2></div>
+      <input type="hidden" name="client_mode" value="{{ raw.client_mode }}" data-client-mode>
+      <div class="seg" role="tablist" style="margin-bottom:16px">
+        <button type="button" role="tab" data-mode-tab="existing" aria-selected="{{ 'true' if raw.client_mode == 'existing' else 'false' }}">Из базы</button>
+        <button type="button" role="tab" data-mode-tab="new" aria-selected="{{ 'true' if raw.client_mode == 'new' else 'false' }}">Новый клиент</button>
+      </div>
+
+      <div data-mode-pane="existing" {% if raw.client_mode != 'existing' %}hidden{% endif %}>
+        <div class="picker" id="picker"
+             data-url="{{ url_for('orders.client_search') }}"
+             data-recent='{{ recent_clients|tojson }}'
+             data-selected='{{ selected_client|tojson }}'>
+          <input type="hidden" name="client_id" value="{{ raw.client_id }}" data-client-id>
+          <div class="picker-selected" data-picker-selected hidden>
+            {{ icon('check') }}
+            <div style="flex:1; min-width:0">
+              <div class="strong" data-sel-name></div>
+              <div class="hint num" data-sel-phone></div>
+            </div>
+            <button class="btn btn-sm" type="button" data-picker-clear>Сменить</button>
+          </div>
+          <div data-picker-search class="{{ invalid(errors, 'client_id') }}">
+            <label class="label" for="client-q">Найдите клиента по ФИО или телефону <span class="req">*</span></label>
+            <div class="input-icon" style="margin-top:6px">
+              {{ icon('search') }}
+              <input class="input" id="client-q" type="search" placeholder="Ахметов или 701 123" data-picker-q>
+            </div>
+            <div class="picker-list" role="listbox" aria-label="Клиенты" data-picker-list style="margin-top:8px"></div>
+            {{ err(errors, 'client_id') }}
+          </div>
+        </div>
+      </div>
+
+      <div data-mode-pane="new" {% if raw.client_mode != 'new' %}hidden{% endif %}>
+        <div class="form-grid">
+          <div class="field{{ invalid(errors, 'new_client_name') }}">
+            <label class="label" for="nc-name">ФИО <span class="req">*</span></label>
+            <input class="input" id="nc-name" name="new_client_name" value="{{ raw.new_client_name }}" maxlength="120" placeholder="Иванов Иван Иванович">
+            {{ err(errors, 'new_client_name') }}
+          </div>
+          <div class="field{{ invalid(errors, 'new_client_phone') }}">
+            <label class="label" for="nc-phone">Телефон <span class="req">*</span></label>
+            <input class="input" id="nc-phone" name="new_client_phone" value="{{ raw.new_client_phone }}" inputmode="tel" placeholder="+7 701 234 56 78">
+            {{ err(errors, 'new_client_phone') or '' }}{% if not errors.get('new_client_phone') %}<p class="hint">От 10 до 15 цифр. Можно с +, пробелами, скобками и дефисами.</p>{% endif %}
+          </div>
+          <div class="field span-2">
+            <label class="label" for="nc-comment">Комментарий о клиенте</label>
+            <input class="input" id="nc-comment" name="new_client_comment" value="{{ raw.new_client_comment }}" maxlength="1000" placeholder="Необязательно">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="section-head"><span class="step">2</span><h2 class="section-title">Позиции</h2><span class="section-note">Размеры в миллиметрах</span></div>
+      {% if errors.get('items') %}<div class="alert-inline" style="margin-bottom:16px">{{ errors['items'] }}</div>{% endif %}
+      <div class="items">
+        <div class="item-row items-head" aria-hidden="true">
+          <span>Тип мебели</span><span>Название, описание</span><span>Ширина</span><span>Высота</span><span>Глубина</span><span>Кол-во</span><span>Цена за ед., ₸</span><span>Сумма</span><span></span>
+        </div>
+        <div class="items" id="items">
+          {% for it in items %}{{ item_row(it) }}{% endfor %}
+        </div>
+      </div>
+      <template id="item-tpl">{{ item_row({'furniture_type': FURNITURE_TYPES[0], 'name': '', 'width': '', 'height': '', 'depth': '', 'qty': '1', 'unit_price': ''}) }}</template>
+      <div class="items-foot">
+        <button class="btn btn-dashed" type="button" data-add-item>{{ icon('plus') }}Добавить позицию</button>
+        <span class="hint">Сумма позиции = количество × цена за единицу</span>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="section-head"><span class="step">3</span><h2 class="section-title">Сроки и комментарий</h2></div>
+      <div class="form-grid">
+        <div class="field{{ invalid(errors, 'delivery_date') }}">
+          <label class="label" for="delivery">Дата доставки</label>
+          <input class="input" id="delivery" type="date" name="delivery_date" value="{{ raw.delivery_date }}">
+          {{ err(errors, 'delivery_date') }}
+        </div>
+        <div class="field{{ invalid(errors, 'created_date') }}">
+          <label class="label" for="created">Дата создания заказа</label>
+          <input class="input" id="created" type="date" name="created_date" value="{{ raw.created_date }}">
+          {% if errors.get('created_date') %}{{ err(errors, 'created_date') }}{% else %}<p class="hint">{{ 'Пусто — сегодняшняя дата.' if is_new else 'Пусто — дата не изменится.' }}</p>{% endif %}
+        </div>
+        <div class="field span-2">
+          <label class="label" for="comment">Комментарий к заказу</label>
+          <textarea class="textarea" id="comment" name="comment" maxlength="2000" placeholder="Цвет фасадов, этаж, особые условия">{{ raw.comment }}</textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="section-head"><span class="step">4</span><h2 class="section-title">Статус</h2></div>
+      <div class="form-grid">
+        <div class="field{{ invalid(errors, 'status') }}">
+          <label class="label" for="status">Статус</label>
+          <select class="select" id="status" name="status">
+            {% for key, label in STATUSES.items() %}<option value="{{ key }}" {% if raw.status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {{ err(errors, 'status') }}
+        </div>
+        <div class="field">
+          <label class="label" for="status-comment">Комментарий в историю</label>
+          <input class="input" id="status-comment" name="status_comment" value="{{ raw.status_comment }}" maxlength="500" placeholder="Например: материал передан в цех">
+          <p class="hint">{{ 'Сохранится в истории заказа.' if is_new else 'Сохранится, если статус изменится.' }}</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="form-bar">
+    <div class="grand"><span class="grand-label">Итого</span><span class="grand-value num" data-grand-total>0,00 ₸</span></div>
+    <span class="spacer"></span>
+    <a class="btn btn-ghost" href="{{ url_for('orders.index') if is_new else url_for('orders.detail', order_id=order.id) }}">Отмена</a>
+    <button class="btn btn-primary" type="submit">{{ 'Создать заказ' if is_new else 'Сохранить изменения' }}</button>
+  </div>
+</form>
+{% endblock %}

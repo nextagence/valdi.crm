@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge, deadline, csrf %}
+{% block title %}{{ client.full_name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('clients.index') }}">{{ icon('arrow-left', 'i-sm') }}Все клиенты</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ client.full_name }}</h1>
+    <p class="page-sub num"><a href="tel:{{ client.phone }}">{{ client.phone|phone }}</a>, в базе с {{ client.created_at|date }}</p>
+  </div>
+  <div class="page-actions">
+    {% if current_user.can('clients_manage') %}
+      {% if not stats.count %}
+      <form method="post" action="{{ url_for('clients.delete', client_id=client.id) }}" data-confirm="Удалить клиента «{{ client.full_name }}»?">
+        {{ csrf() }}<input type="hidden" name="back" value="detail">
+        <button class="btn btn-danger" type="submit">{{ icon('trash') }}Удалить</button>
+      </form>
+      {% endif %}
+      <a class="btn" href="{{ url_for('clients.edit', client_id=client.id) }}">{{ icon('edit') }}Изменить</a>
+    {% endif %}
+    {% if current_user.can('orders_manage') %}
+    <a class="btn btn-primary" href="{{ url_for('orders.create', client_id=client.id) }}">{{ icon('plus') }}Новый заказ</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid">
+  <section class="panel c-12">
+    <div class="stats">
+      <div class="stat"><div class="stat-value num">{{ stats.count }}</div><div class="stat-label">{{ plural(stats.count, 'заказ', 'заказа', 'заказов') }} всего</div></div>
+      <div class="stat"><div class="stat-value num">{{ stats.sum|money0 }}</div><div class="stat-label">Сумма без отменённых</div></div>
+      <div class="stat"><div class="stat-value num">{{ stats.active }}</div><div class="stat-label">В работе сейчас</div></div>
+    </div>
+  </section>
+
+  {% if client.comment %}
+  <section class="panel c-12">
+    <div class="panel-body"><div class="fact-label">Комментарий</div><div class="comment-box">{{ client.comment }}</div></div>
+  </section>
+  {% endif %}
+
+  <section class="panel c-12">
+    <div class="panel-head"><h2 class="panel-title">Заказы клиента</h2></div>
+    <div class="panel-flush">
+      {% if orders %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>№</th><th>Мебель</th><th class="r">Сумма</th><th>Создан</th><th>Доставка</th><th>Статус</th></tr></thead>
+          <tbody>
+            {% for o in orders %}
+            <tr {% if current_user.can('orders_view') %}data-href="{{ url_for('orders.detail', order_id=o.id) }}"{% endif %}>
+              <td class="id">{{ o.id }}</td>
+              <td>{{ o.types or '—' }}</td>
+              <td class="r num strong">{{ o.total|money }}</td>
+              <td class="num muted">{{ o.created_at|date }}</td>
+              <td>{{ deadline(o) }}</td>
+              <td>{{ status_badge(o.status) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty"><div class="empty-title">Заказов пока нет</div>
+        {% if current_user.can('orders_manage') %}<div><a class="btn btn-primary" href="{{ url_for('orders.create', client_id=client.id) }}">{{ icon('plus') }}Оформить первый заказ</a></div>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

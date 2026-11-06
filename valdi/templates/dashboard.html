@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, status_badge %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+{% set period_label = dict(periods)[period] %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Главная</h1>
+    <p class="page-sub">Клиенты, заказы и выручка {{ 'за ' ~ period_label|lower if period != 'all' else 'за всё время' }}</p>
+  </div>
+  <div class="page-actions">
+    <nav class="seg" aria-label="Период">
+      {% for key, label in periods %}
+      <a href="{{ url_for('dashboard.index', period=key) }}" {% if key == period %}aria-current="true"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    {% if current_user.can('orders_manage') %}
+    <a class="btn btn-primary" href="{{ url_for('orders.create') }}">{{ icon('plus') }}Новый заказ</a>
+    {% endif %}
+  </div>
+</div>
+
+<section class="panel kpis" aria-label="Показатели">
+  <div class="kpi kpi-hero">
+    <div class="kpi-label">Выручка</div>
+    <div class="kpi-value num">{{ kpi.revenue|money0 }}</div>
+    <div class="kpi-hint">Без отменённых заказов</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Заказы</div>
+    <div class="kpi-value num">{{ kpi.orders }}</div>
+    <div class="kpi-hint">Создано за период</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Средний чек</div>
+    <div class="kpi-value num">{{ kpi.avg_check|money0 }}</div>
+    <div class="kpi-hint">На один заказ</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Новые клиенты</div>
+    <div class="kpi-value num">{{ kpi.new_clients }}</div>
+    <div class="kpi-hint">Добавлено в базу</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">В работе</div>
+    <div class="kpi-value num">{{ kpi.in_work }}</div>
+    {% if current_user.can('orders_view') %}
+    <a class="kpi-hint" href="{{ url_for('orders.index', status='active') }}">Активные заказы</a>
+    {% else %}<div class="kpi-hint">Активные заказы</div>{% endif %}
+  </div>
+  <div class="kpi {% if kpi.overdue %}kpi-alert{% endif %}">
+    <div class="kpi-label">Просрочено</div>
+    <div class="kpi-value num">{{ kpi.overdue }}</div>
+    {% if current_user.can('orders_view') and kpi.overdue %}
+    <a class="kpi-hint" href="{{ url_for('orders.index', status='overdue') }}">Показать заказы</a>
+    {% else %}<div class="kpi-hint">Срок доставки прошёл</div>{% endif %}
+  </div>
+</section>
+
+<div class="grid">
+  <section class="panel panel-chart c-8">
+    <div class="panel-head">
+      <h2 class="panel-title">Выручка по месяцам</h2>
+      <span class="panel-meta">За 6 месяцев: <strong class="num" style="color:var(--text)">{{ chart_total|money0 }}</strong></span>
+    </div>
+    <div class="panel-body">
+      <div class="bars" role="img" aria-label="Выручка по месяцам">
+        {% for m in chart %}
+        <div class="bar-col{% if m.current %} current{% endif %}" title="{{ m.label }}: {{ m.value|money }}">
+          <div class="bar-area">
+            <span class="bar-value num">{{ m.value|money_short if m.value else '0' }}</span>
+            <div class="bar" style="height: {{ m.pct }}%"></div>
+          </div>
+          <div class="bar-label">{{ m.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel c-4">
+    <div class="panel-head">
+      <h2 class="panel-title">Статусы заказов</h2>
+      <span class="panel-meta num">{{ status_total }} {{ plural(status_total, 'заказ', 'заказа', 'заказов') }}</span>
+    </div>
+    <div class="panel-body">
+      <div class="donut-wrap">
+        <svg class="donut" viewBox="0 0 148 148" role="img" aria-label="Выполнено {{ done_pct }}%">
+          <circle cx="74" cy="74" r="52" stroke="var(--raised)"/>
+          {% for s in segments if s.count %}
+          <circle cx="74" cy="74" r="52" stroke="var(--st-{{ s.key }})" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}" transform="rotate(-90 74 74)"/>
+          {% endfor %}
+          <text class="donut-center" x="74" y="78" text-anchor="middle">{{ done_pct }}%</text>
+          <text class="donut-sub" x="74" y="98" text-anchor="middle">выполнено</text>
+        </svg>
+        <div class="legend">
+          {% for s in segments %}
+          <div class="legend-row">
+            <span class="legend-dot" style="background: var(--st-{{ s.key }})"></span>
+            {% if current_user.can('orders_view') %}<a href="{{ url_for('orders.index', status=s.key) }}">{{ s.label }}</a>{% else %}<span>{{ s.label }}</span>{% endif %}
+            <span class="legend-count num">{{ s.count }}</span>
+            <span class="legend-pct num">{{ s.pct }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel c-7">
+    <div class="panel-head">
+      <h2 class="panel-title">Сроки доставки</h2>
+      <span class="panel-meta">Просроченные и ближайшие 3 дня</span>
+    </div>
+    <div class="panel-flush">
+      {% if attention %}
+      <div class="list">
+        {% for o in attention %}
+        {% set d = deadline_info(o.delivery_date) %}
+        {% set tag = 'a' if current_user.can('orders_view') else 'div' %}
+        <{{ tag }} class="list-row" {% if tag == 'a' %}href="{{ url_for('orders.detail', order_id=o.id) }}"{% endif %}>
+          <div>
+            <div class="list-title">{{ o.client }}</div>
+            <div class="list-sub num">№{{ o.id }}, доставка {{ o.delivery_date|date }}</div>
+          </div>
+          <div class="tags">
+            {{ status_badge(o.status) }}
+            <span class="badge plain tone-{{ d.tone }}">{{ d.label }}</span>
+          </div>
+        </{{ tag }}>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty"><div class="empty-title">Срочных заказов нет</div>Ничего не просрочено, на ближайшие 3 дня доставок нет.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel c-5">
+    <div class="panel-head">
+      <h2 class="panel-title">Выручка по категориям</h2>
+      <span class="panel-meta">{{ period_label }}</span>
+    </div>
+    <div class="panel-body">
+      {% if categories %}
+      <div class="cat-list">
+        {% for c in categories %}
+        <div class="cat-row">
+          <div class="cat-name">{{ c.name }}<small class="num">{{ c.orders }} {{ plural(c.orders, 'заказ', 'заказа', 'заказов') }}</small></div>
+          <div class="cat-sum num">{{ c.s|money0 }}</div>
+          <div class="cat-track"><div class="cat-fill" style="width: {{ (c.s / cat_max * 100)|round(1) }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty"><div class="empty-title">Нет продаж за период</div>Выберите период длиннее.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel c-8">
+    <div class="panel-head">
+      <h2 class="panel-title">Последние заказы</h2>
+      {% if current_user.can('orders_view') %}<a class="chip-link" href="{{ url_for('orders.index') }}">Все заказы {{ icon('chevron-right', 'i-sm') }}</a>{% endif %}
+    </div>
+    <div class="panel-flush">
+      {% if recent %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>№</th><th>Клиент</th><th class="r">Сумма</th><th class="hide-sm">Создан</th><th>Статус</th></tr></thead>
+          <tbody>
+            {% for o in recent %}
+            <tr {% if current_user.can('orders_view') %}data-href="{{ url_for('orders.detail', order_id=o.id) }}"{% endif %}>
+              <td class="id">{{ o.id }}</td>
+              <td><div class="strong">{{ o.client }}</div><div class="sub">{{ o.types or '—' }}</div></td>
+              <td class="r num strong">{{ o.total|money }}</td>
+              <td class="num muted hide-sm">{{ o.created_at|date }}</td>
+              <td>{{ status_badge(o.status) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty"><div class="empty-title">Заказов пока нет</div>Создайте первый заказ — он появится здесь.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="panel c-4">
+    <div class="panel-head"><h2 class="panel-title">Лента событий</h2></div>
+    {% if activity %}
+    <div class="feed">
+      {% for a in activity %}
+      <div class="feed-item">
+        <span class="feed-dot st-{{ a.status }}"></span>
+        <div>
+          <div class="feed-text">
+            {% if a.kind == 'created' %}Создан заказ{% else %}Заказ{% endif %}
+            {% if current_user.can('orders_view') %}<a href="{{ url_for('orders.detail', order_id=a.order_id) }}">№{{ a.order_id }}</a>{% else %}<strong>№{{ a.order_id }}</strong>{% endif %}{% if a.kind == 'status' %}: {{ STATUSES[a.status]|lower }}{% endif %}
+          </div>
+          <div class="feed-meta">{{ a.created_at|ago }}{% if a.user %}, {{ a.user }}{% endif %}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">Событий пока нет.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

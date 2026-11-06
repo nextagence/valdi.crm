@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, pager, csrf %}
+{% block title %}Клиенты{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Клиенты</h1>
+    <p class="page-sub num">В базе {{ total }} {{ plural(total, 'клиент', 'клиента', 'клиентов') }}{% if q %} по запросу «{{ q }}»{% endif %}</p>
+  </div>
+  {% if current_user.can('clients_manage') %}
+  <div class="page-actions"><a class="btn btn-primary" href="{{ url_for('clients.create') }}">{{ icon('plus') }}Новый клиент</a></div>
+  {% endif %}
+</div>
+
+<section class="panel">
+  <form class="panel-body" method="get" style="display:flex; gap:8px; flex-wrap:wrap">
+    <div class="input-icon" style="flex:1; min-width:220px">
+      {{ icon('search') }}
+      <input class="input" type="search" name="q" value="{{ q }}" placeholder="ФИО или телефон: Ахметов, 701 123" aria-label="Поиск по ФИО или телефону">
+    </div>
+    <button class="btn btn-primary" type="submit">Найти</button>
+    {% if q %}<a class="btn btn-ghost" href="{{ url_for('clients.index') }}">{{ icon('reset') }}Сбросить</a>{% endif %}
+  </form>
+
+  {% if rows %}
+  <div class="table-wrap" style="border-top:1px solid var(--line)">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Клиент</th><th>Телефон</th><th class="r">Заказов</th><th class="r">Сумма заказов</th><th class="hide-sm">Добавлен</th>
+          <th class="r"><span class="sr-only">Действия</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in rows %}
+        <tr data-href="{{ url_for('clients.detail', client_id=c.id) }}">
+          <td class="id">{{ c.id }}</td>
+          <td class="col-client">
+            <a class="strong" href="{{ url_for('clients.detail', client_id=c.id) }}">{{ c.full_name }}</a>
+            {% if c.comment %}<div class="sub">{{ c.comment|truncate(70) }}</div>{% endif %}
+          </td>
+          <td class="num nowrap">{{ c.phone|phone }}</td>
+          <td class="r num">{{ c.orders_count }}</td>
+          <td class="r num strong">{{ c.orders_sum|money0 if c.orders_sum else '—' }}</td>
+          <td class="num muted hide-sm">{{ c.created_at|date }}</td>
+          <td class="r">
+            <div class="icon-actions">
+              {% if current_user.can('orders_manage') %}
+              <a class="btn btn-ghost btn-icon" href="{{ url_for('orders.create', client_id=c.id) }}" title="Новый заказ" aria-label="Новый заказ для {{ c.full_name }}">{{ icon('plus', 'i-sm') }}</a>
+              {% endif %}
+              {% if current_user.can('clients_manage') %}
+              <a class="btn btn-ghost btn-icon" href="{{ url_for('clients.edit', client_id=c.id) }}" title="Изменить" aria-label="Изменить {{ c.full_name }}">{{ icon('edit', 'i-sm') }}</a>
+              {% if c.orders_count %}
+              <span class="btn btn-ghost btn-icon" title="У клиента есть заказы — удалить нельзя" style="opacity:.3; cursor:not-allowed">{{ icon('trash', 'i-sm') }}</span>
+              {% else %}
+              <form method="post" action="{{ url_for('clients.delete', client_id=c.id) }}" data-confirm="Удалить клиента «{{ c.full_name }}»?">
+                {{ csrf() }}
+                <button class="btn btn-danger btn-icon" type="submit" title="Удалить" aria-label="Удалить {{ c.full_name }}">{{ icon('trash', 'i-sm') }}</button>
+              </form>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ pager(page, pages, 'clients.index') }}
+  {% elif q %}
+  <div class="empty"><div class="empty-title">Никого не нашли</div>Проверьте написание или ищите по последним цифрам телефона.</div>
+  {% else %}
+  <div class="empty"><div class="empty-title">Клиентов пока нет</div>Добавьте клиента вручную или сразу при создании заказа.
+    {% if current_user.can('clients_manage') %}<div><a class="btn btn-primary" href="{{ url_for('clients.create') }}">{{ icon('plus') }}Новый клиент</a></div>{% endif %}</div>
+  {% endif %}
+</section>
+{% endblock %}

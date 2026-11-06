@@ -1,0 +1,79 @@
+{% from "_macros.html" import icon %}<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0E0F11">
+  <title>{% block title %}{% endblock %} — {{ company }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E0F11'/%3E%3Crect x='10' y='10' width='12' height='12' rx='3' fill='%23C6F432'/%3E%3C/svg%3E">
+</head>
+<body>
+{% include "_icons.html" %}
+{% block body %}
+{% set section = request.blueprint %}
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar" aria-label="Навигация">
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">{{ company|lower }}</span>
+    </a>
+    <nav class="nav">
+      {% if current_user.can('dashboard') %}
+      <a href="{{ url_for('dashboard.index') }}" {% if section == 'dashboard' %}aria-current="page"{% endif %}>{{ icon('dashboard') }}Главная</a>
+      {% endif %}
+      {% if current_user.can('orders_view') %}
+      <a href="{{ url_for('orders.index') }}" {% if section == 'orders' %}aria-current="page"{% endif %}>{{ icon('orders') }}Заказы</a>
+      {% endif %}
+      {% if current_user.can('clients_view') %}
+      <a href="{{ url_for('clients.index') }}" {% if section == 'clients' %}aria-current="page"{% endif %}>{{ icon('clients') }}Клиенты</a>
+      {% endif %}
+      {% if current_user.can('employees_manage') %}
+      <a href="{{ url_for('employees.index') }}" {% if section == 'employees' %}aria-current="page"{% endif %}>{{ icon('staff') }}Сотрудники</a>
+      {% endif %}
+    </nav>
+    <div class="me">
+      <span class="avatar" aria-hidden="true">{{ current_user.full_name[:1]|upper }}</span>
+      <div class="me-text">
+        <div class="me-name" title="{{ current_user.full_name }}">{{ current_user.full_name }}</div>
+        <div class="me-role">{{ current_user.role_label }}</div>
+      </div>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-icon" type="submit" title="Выйти" aria-label="Выйти">{{ icon('logout') }}</button>
+      </form>
+    </div>
+  </aside>
+
+  <div class="content">
+    <header class="topbar">
+      <button class="btn btn-ghost btn-icon" type="button" data-nav-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Меню">{{ icon('menu') }}</button>
+      <a class="brand" href="{{ url_for('index') }}"><span class="brand-mark"></span><span class="brand-name">{{ company|lower }}</span></a>
+    </header>
+    <main class="main">
+      <div class="main-inner">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flashes" role="status">
+          {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat if cat in ('success', 'error', 'info') else 'info' }}">
+            <span class="flash-text">{{ msg }}</span>
+            <button class="btn btn-ghost btn-icon" type="button" data-dismiss aria-label="Закрыть">{{ icon('x', 'i-sm') }}</button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}
+<script src="{{ url_for('static', filename='js/app.js') }}?v=1" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

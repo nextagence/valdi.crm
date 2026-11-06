@@ -1,0 +1,4 @@
+Flask>=3.0,<4
+tzdata; sys_platform == "win32"
+# Для продакшена на Linux-сервере:
+# gunicorn>=22

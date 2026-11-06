@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block body %}
+{% if current_user %}{{ super() }}{% else %}
+<main class="main"><div class="error-page"><div>
+  <div class="error-code">{{ code }}</div>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <a class="btn btn-primary" href="{{ url_for('auth.login') }}">Ко входу</a>
+</div></div></main>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="error-page"><div>
+  <div class="error-code">{{ code }}</div>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <a class="btn btn-primary" href="{{ url_for('index') }}">На главную</a>
+</div></div>
+{% endblock %}
